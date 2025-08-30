@@ -4,7 +4,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_text_splitters import CharacterTextSplitter
 
 # Ensure Ollama is running (run `ollama serve` in another PowerShell if needed)
-loader = DirectoryLoader('C:/AI_Data/')
+loader = DirectoryLoader('C:/Users/LENOVO/Desktop/unlimited-context-ai-models/AI_Data/', glob="**/*.*", exclude=["**/faiss_index/**"])
 documents = loader.load()
 text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
 docs = text_splitter.split_documents(documents)
