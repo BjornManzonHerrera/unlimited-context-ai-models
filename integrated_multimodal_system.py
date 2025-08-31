@@ -7,6 +7,7 @@ import os
 import json
 from enhanced_local_image_analyzer import EnhancedLocalImageAnalyzer
 import requests
+from typing import List, Dict
 
 class IntegratedMultimodalSystem:
     def __init__(self, 
@@ -40,10 +41,10 @@ class IntegratedMultimodalSystem:
                 self.text_metadata = pickle.load(f)
             
             self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-            print("✅ Text index loaded successfully")
+            print("Text index loaded successfully")
             
         except Exception as e:
-            print(f"❌ Error loading text index: {e}")
+            print(f"Error loading text index: {e}")
             self.text_index = None
     
     def load_image_cache(self):
@@ -52,7 +53,7 @@ class IntegratedMultimodalSystem:
             if os.path.exists(self.image_cache_file):
                 with open(self.image_cache_file, 'r') as f:
                     self.image_cache = json.load(f)
-                print(f"✅ Loaded {len(self.image_cache)} cached image analyses")
+                print(f"Loaded {len(self.image_cache)} cached image analyses")
             else:
                 self.image_cache = {}
         except Exception as e:
@@ -98,12 +99,12 @@ class IntegratedMultimodalSystem:
                 # Check cache first
                 cache_key = f"{image_path}_{hash(query)}"
                 if cache_key in self.image_cache:
-                    print(f"📋 Using cached analysis for {filename}")
+                    print(f"Using cached analysis for {filename}")
                     results.append(self.image_cache[cache_key])
                     continue
                 
                 # Analyze image
-                print(f"🔍 Analyzing {filename}...")
+                print(f"Analyzing {filename}...")
                 result = self.image_analyzer.analyze_image_advanced(image_path, query)
                 
                 if result['status'] == 'success':
@@ -121,22 +122,22 @@ class IntegratedMultimodalSystem:
         Optimized for your hardware specifications.
         """
         
-        print(f"\n🚀 Processing comprehensive query: '{query}'")
+        print(f"\nProcessing comprehensive query: '{query}'")
         print("="*60)
         
         # Step 1: Search text documents
-        print("📚 Searching text documents...")
+        print("Searching text documents...")
         text_results = self.search_text_content(query, k=5)
         print(f"Found {len(text_results)} relevant text chunks")
         
         # Step 2: Process images
-        print("🖼️  Processing images...")
+        print("Processing images...")
         image_results = self.process_images_for_query(query, image_directory)
         successful_images = [r for r in image_results if r['status'] == 'success']
         print(f"Successfully analyzed {len(successful_images)} images")
         
         # Step 3: Synthesize comprehensive answer
-        print("🧠 Synthesizing comprehensive answer...")
+        print("Synthesizing comprehensive answer...")
         return self.synthesize_comprehensive_answer(query, text_results, successful_images)
     
     def synthesize_comprehensive_answer(self, query: str, text_results: List[str], image_results: List[Dict]) -> str:
@@ -194,10 +195,10 @@ COMPREHENSIVE ANSWER:"""
             if response.status_code == 200:
                 return response.json().get('response', 'No response generated')
             else:
-                return f"❌ Error generating response: HTTP {response.status_code}"
+                return f"Error generating response: HTTP {response.status_code}"
                 
         except Exception as e:
-            return f"❌ Synthesis failed: {e}"
+            return f"Synthesis failed: {e}"
 
 # Performance monitoring
 def monitor_system_resources():
@@ -206,7 +207,8 @@ def monitor_system_resources():
         import psutil
         import GPUtil
         
-        print(f"\n📊 SYSTEM STATUS:")
+        print(f"
+SYSTEM STATUS:")
         print(f"CPU Usage: {psutil.cpu_percent()}%")
         print(f"RAM Usage: {psutil.virtual_memory().percent}%")
         
@@ -240,7 +242,7 @@ if __name__ == "__main__":
     answer = system.comprehensive_query(query, image_dir)
     
     print("\n" + "="*60)
-    print("🎯 COMPREHENSIVE ANALYSIS RESULT")
+    print("COMPREHENSIVE ANALYSIS RESULT")
     print("="*60)
     print(answer)
     print("\n" + "="*60)

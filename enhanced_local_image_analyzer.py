@@ -29,7 +29,7 @@ class EnhancedLocalImageAnalyzer:
                 print(f"Warning: {self.vision_model} not found. Available models: {available_models}")
                 print(f"Run: ollama pull {self.vision_model}")
             else:
-                print(f"✅ {self.vision_model} is ready")
+                print(f"{self.vision_model} is ready")
                 
         except Exception as e:
             print(f"Could not verify models: {e}")
@@ -159,9 +159,9 @@ Be thorough and precise - this analysis will be used for document search and ret
                 try:
                     result = future.result()
                     results.append(result)
-                    print(f"✅ Completed: {filename}")
+                    print(f"Completed: {filename}")
                 except Exception as e:
-                    print(f"❌ Failed: {filename} - {e}")
+                    print(f"Failed: {filename} - {e}")
                     results.append({
                         'image_path': os.path.join(image_directory, filename),
                         'status': 'error',

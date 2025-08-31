@@ -7,11 +7,11 @@ def enhanced_query(question, use_multimodal=True):
     """Enhanced version of your existing query function."""
     
     if use_multimodal and os.path.exists("Images"):
-        print("🔄 Using multimodal analysis...")
+        print("Using multimodal analysis...")
         system = IntegratedMultimodalSystem()
         return system.comprehensive_query(question)
     else:
-        print("📝 Using text-only analysis...")
+        print("Using text-only analysis...")
         # Your existing query logic here
         from langchain_ollama import OllamaLLM
         from langchain_community.embeddings import OllamaEmbeddings
