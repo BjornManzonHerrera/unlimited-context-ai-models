@@ -1,160 +1,481 @@
-The error occurs because you're running the command `curl -fsSL https://ollama.com/install.sh | sh` in PowerShell on Windows, but the `sh` command (a Unix shell) isn’t available. The Ollama installation script you tried is designed for Linux/macOS, which use `sh` to execute shell scripts. For Windows, you need to use the Windows-specific installer or adapt the command. Since your system is Windows 10 Home (based on your hardware info), I’ll guide you to install Ollama correctly and proceed with setting up Llama 3.1, then transition to the RAG setup for unlimited context and procedural updates, optimized for your hardware (RTX 3050 6GB, 25GB RAM, 10-core i5).
+# Adding Gemini CLI Image Analysis to Your Local AI Project
 
-### Fixing the Ollama Installation
-Instead of using the Linux/macOS script, download and run the Windows installer for Ollama, which is straightforward and works with your system.
+## Prerequisites
 
-#### Step 1: Install Ollama on Windows
-1. **Download the Installer**:
-   - Go to ollama.com.
-   - Click the “Download for Windows” button. This downloads a ~100MB `.exe` file (e.g., `OllamaSetup.exe`).
-   - Save it to a folder like `C:\Users\LENOVO\Desktop\unlimited-context-ai-models`.
+1. **Install Gemini CLI**:
+   ```bash
+   npm install -g @google/generative-ai-cli
+   ```
 
-2. **Run the Installer**:
-   - Double-click `OllamaSetup.exe` in File Explorer.
-   - Follow the prompts (takes ~2 minutes). This installs Ollama as a service and sets up the command-line tool.
-   - If prompted, allow the app to make changes (UAC prompt).
+2. **Set up API Key**:
+   ```bash
+   export GEMINI_API_KEY="your-api-key-here"
+   # Or add to your .bashrc/.zshrc for persistence
+   echo 'export GEMINI_API_KEY="your-api-key-here"' >> ~/.bashrc
+   ```
 
-3. **Verify Installation**:
-   - Open PowerShell (you’re already in `C:\Users\LENOVO\Desktop\unlimited-context-ai-models`).
-   - Run: `ollama --version`
-   - You should see a version number (e.g., 0.3.x). If not, restart PowerShell or reboot your system.
+3. **Install Required Python Packages**:
+   ```bash
+   pip install google-generativeai pillow requests
+   ```
 
-4. **Alternative (if you prefer manual setup)**:
-   - If the installer fails (rare), download the Windows binary from Ollama’s GitHub releases page (github.com/ollama/ollama/releases). Extract `ollama.exe` to a folder (e.g., `C:\Ollama`), and add it to your system PATH:
-     - Right-click “This PC” > Properties > Advanced system settings > Environment Variables.
-     - Under “System variables,” edit “Path,” add `C:\Ollama`, and save.
-     - Verify with `ollama --version` in PowerShell.
+## Project Structure Updates
 
-**Time**: ~5 minutes (download: 2 min, install: 2 min, verify: 1 min).
-**Storage**: ~100MB for Ollama.
+Your updated project structure should look like:
+```
+your-project/
+├── AI_Data/
+├── Images/                 # New: Store images for analysis
+├── faiss_index/
+├── update.py
+├── query.py
+├── image_analyzer.py       # New: Image analysis module
+├── multimodal_query.py     # New: Combined text + image queries
+└── requirements.txt        # Updated with new dependencies
+```
 
-#### Step 2: Run Llama 3.1
-Now that Ollama is installed, pull and test Llama 3.1 8B, which fits your 6GB VRAM (RTX 3050) and 25GB RAM.
+## Implementation Files
 
-1. **Pull the Model**:
-   - In PowerShell:
-     ```powershell
-     ollama pull llama3.1:8b-q4_0
-     ```
-   - This downloads the 4-bit quantized Llama 3.1 8B model (~5GB, ~5-10 minutes depending on internet speed).
+### 1. Create `image_analyzer.py`
 
-2. **Run the Model**:
-   - Start it:
-     ```powershell
-     ollama run llama3.1:8b-q4_0
-     ```
-   - Type a test prompt (e.g., “What are the benefits of local AI?”). Expect responses in ~1-5 seconds.
-   - Check GPU usage: Open another PowerShell window, run `nvidia-smi`, and confirm ~4-6GB VRAM is used, indicating CUDA acceleration.
+```python
+import google.generativeai as genai
+import os
+from PIL import Image
+import json
+from typing import Dict, List, Optional
 
-3. **Optional: Add Open WebUI**:
-   - For a browser-based chat interface, install Docker Desktop (docker.com, ~500MB, ~5-minute install).
-   - Run in PowerShell:
-     ```powershell
-     docker run -d -p 3000:8080 --add-host=host.docker.internal:host-gateway -v open-webui:/app/backend/data -e OLLAMA_API_BASE=http://host.docker.internal:11434 --name open-webui --restart always ghcr.io/open-webui/open-webui:main
-     ```
-   - Open http://localhost:3000, sign in, and select `llama3.1:8b-q4_0` to chat.
-   - If Docker fails, ensure WSL2 is enabled (run `wsl --install` in PowerShell as admin and reboot).
+class GeminiImageAnalyzer:
+    def __init__(self, api_key: str = None):
+        """Initialize Gemini image analyzer."""
+        self.api_key = api_key or os.getenv('GEMINI_API_KEY')
+        if not self.api_key:
+            raise ValueError("GEMINI_API_KEY not found in environment variables")
+        
+        genai.configure(api_key=self.api_key)
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
+    
+    def analyze_image(self, image_path: str, prompt: str = None) -> Dict:
+        """
+        Analyze an image with optional custom prompt.
+        
+        Args:
+            image_path: Path to the image file
+            prompt: Custom prompt for analysis (optional)
+        
+        Returns:
+            Dictionary with analysis results
+        """
+        try:
+            # Load and validate image
+            image = Image.open(image_path)
+            
+            # Default prompt if none provided
+            if not prompt:
+                prompt = """Analyze this image in detail. Describe:
+                1. What you see in the image
+                2. Key objects, people, or elements
+                3. Context or setting
+                4. Any text visible in the image
+                5. Relevant details for document/data analysis
+                
+                Provide a structured analysis that could be useful for search and retrieval."""
+            
+            # Generate content
+            response = self.model.generate_content([prompt, image])
+            
+            return {
+                'image_path': image_path,
+                'analysis': response.text,
+                'status': 'success'
+            }
+            
+        except Exception as e:
+            return {
+                'image_path': image_path,
+                'analysis': None,
+                'status': 'error',
+                'error': str(e)
+            }
+    
+    def batch_analyze_images(self, image_directory: str, custom_prompt: str = None) -> List[Dict]:
+        """
+        Analyze all images in a directory.
+        
+        Args:
+            image_directory: Path to directory containing images
+            custom_prompt: Optional custom prompt for all images
+        
+        Returns:
+            List of analysis results
+        """
+        results = []
+        supported_formats = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
+        
+        if not os.path.exists(image_directory):
+            print(f"Directory {image_directory} does not exist")
+            return results
+        
+        for filename in os.listdir(image_directory):
+            file_ext = os.path.splitext(filename)[1].lower()
+            if file_ext in supported_formats:
+                image_path = os.path.join(image_directory, filename)
+                print(f"Analyzing: {filename}")
+                
+                result = self.analyze_image(image_path, custom_prompt)
+                results.append(result)
+        
+        return results
+    
+    def save_analysis_results(self, results: List[Dict], output_file: str):
+        """Save analysis results to JSON file."""
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(results, f, indent=2, ensure_ascii=False)
+        print(f"Results saved to {output_file}")
 
-**Time**: ~10-15 minutes (download: 5-10 min, test: 2-5 min).
-**Storage**: ~5GB for Llama 3.1.
-**Resources**: ~4-6GB VRAM, ~5-8GB RAM.
+# CLI usage example
+if __name__ == "__main__":
+    import sys
+    
+    analyzer = GeminiImageAnalyzer()
+    
+    if len(sys.argv) < 2:
+        print("Usage: python image_analyzer.py <image_path_or_directory> [custom_prompt]")
+        sys.exit(1)
+    
+    path = sys.argv[1]
+    custom_prompt = sys.argv[2] if len(sys.argv) > 2 else None
+    
+    if os.path.isfile(path):
+        # Single image analysis
+        result = analyzer.analyze_image(path, custom_prompt)
+        print(json.dumps(result, indent=2))
+    elif os.path.isdir(path):
+        # Batch analysis
+        results = analyzer.batch_analyze_images(path, custom_prompt)
+        output_file = "image_analysis_results.json"
+        analyzer.save_analysis_results(results, output_file)
+    else:
+        print(f"Path {path} is neither a file nor directory")
+```
 
-#### Step 3: Set Up RAG for Unlimited Context and Updates
-With Ollama and Llama 3.1 running, add RAG to handle large contexts and procedural data updates using LangChain and FAISS. This leverages your GPU for embeddings and CPU for indexing, fitting your hardware.
+### 2. Create `multimodal_query.py`
 
-1. **Install Python and Dependencies**:
-   - Download Python 3.10+ from python.org (~30MB, ~2-minute install). Ensure “Add Python to PATH” is checked.
-   - In PowerShell:
-     ```powershell
-     pip install langchain langchain-community langchain-ollama faiss-cpu
-     ```
-     (~200MB, ~5 minutes).
+```python
+import faiss
+import numpy as np
+import pickle
+from sentence_transformers import SentenceTransformer
+import json
+import os
+from image_analyzer import GeminiImageAnalyzer
+import google.generativeai as genai
 
-2. **Prepare Data**:
-   - Create a folder: `mkdir C:\AI_Data`.
-   - Add test documents (e.g., a few text files or PDFs, ~1-10MB) to `C:\AI_Data`.
+class MultimodalQuerySystem:
+    def __init__(self, faiss_index_path="faiss_index", gemini_api_key=None):
+        """Initialize multimodal query system."""
+        # Load existing text-based system
+        self.load_faiss_index(faiss_index_path)
+        
+        # Initialize image analyzer
+        self.image_analyzer = GeminiImageAnalyzer(gemini_api_key)
+        
+        # Initialize Gemini for final answer synthesis
+        genai.configure(api_key=gemini_api_key or os.getenv('GEMINI_API_KEY'))
+        self.synthesis_model = genai.GenerativeModel('gemini-1.5-flash')
+    
+    def load_faiss_index(self, index_path):
+        """Load the existing FAISS index and related data."""
+        try:
+            self.index = faiss.read_index(os.path.join(index_path, "index.faiss"))
+            
+            with open(os.path.join(index_path, "chunks.pkl"), "rb") as f:
+                self.chunks = pickle.load(f)
+            
+            with open(os.path.join(index_path, "metadata.pkl"), "rb") as f:
+                self.metadata = pickle.load(f)
+            
+            self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+            print("FAISS index loaded successfully")
+            
+        except Exception as e:
+            print(f"Error loading FAISS index: {e}")
+            self.index = None
+    
+    def search_text_documents(self, query: str, k: int = 5) -> List[str]:
+        """Search text documents using existing FAISS index."""
+        if not self.index:
+            return []
+        
+        query_embedding = self.embedding_model.encode([query])
+        distances, indices = self.index.search(query_embedding.astype('float32'), k)
+        
+        relevant_chunks = []
+        for idx in indices[0]:
+            if idx < len(self.chunks):
+                relevant_chunks.append(self.chunks[idx])
+        
+        return relevant_chunks
+    
+    def analyze_relevant_images(self, query: str, image_directory: str = "Images") -> List[Dict]:
+        """Analyze images that might be relevant to the query."""
+        if not os.path.exists(image_directory):
+            return []
+        
+        # Create a focused prompt based on the user's query
+        focused_prompt = f"""Analyze this image in the context of this question: "{query}"
+        
+        Focus on:
+        1. Any information relevant to the query
+        2. Text, charts, graphs, or data visible in the image
+        3. Visual elements that might help answer the question
+        4. How this image relates to the query topic
+        
+        If the image is not relevant to the query, briefly state that."""
+        
+        results = self.image_analyzer.batch_analyze_images(image_directory, focused_prompt)
+        
+        # Filter for relevant results
+        relevant_results = []
+        for result in results:
+            if result['status'] == 'success' and result['analysis']:
+                # Simple relevance check - you could make this more sophisticated
+                analysis_lower = result['analysis'].lower()
+                query_words = query.lower().split()
+                
+                relevance_score = sum(1 for word in query_words if word in analysis_lower)
+                if relevance_score > 0 or len(query_words) <= 2:  # Include if any relevance or short query
+                    relevant_results.append(result)
+        
+        return relevant_results
+    
+    def multimodal_query(self, query: str, image_directory: str = "Images") -> str:
+        """
+        Perform a multimodal query combining text and image analysis.
+        
+        Args:
+            query: The question to answer
+            image_directory: Directory containing images to analyze
+        
+        Returns:
+            Comprehensive answer combining text and image sources
+        """
+        print(f"Processing multimodal query: {query}")
+        
+        # 1. Search text documents
+        print("Searching text documents...")
+        text_results = self.search_text_documents(query, k=5)
+        
+        # 2. Analyze relevant images
+        print("Analyzing images...")
+        image_results = self.analyze_relevant_images(query, image_directory)
+        
+        # 3. Synthesize final answer
+        return self.synthesize_answer(query, text_results, image_results)
+    
+    def synthesize_answer(self, query: str, text_results: List[str], image_results: List[Dict]) -> str:
+        """Synthesize final answer from text and image sources."""
+        
+        # Prepare context for synthesis
+        text_context = "\n\n".join([f"Text Source {i+1}:\n{text}" for i, text in enumerate(text_results)])
+        
+        image_context = ""
+        for i, img_result in enumerate(image_results):
+            if img_result['status'] == 'success':
+                image_context += f"\nImage Analysis {i+1} ({os.path.basename(img_result['image_path'])}):\n{img_result['analysis']}\n"
+        
+        synthesis_prompt = f"""You are answering the following question: "{query}"
 
-3. **Index Data**:
-   - Save this as `index.py` in your working directory:
-     ```python
-     from langchain_community.document_loaders import DirectoryLoader
-     from langchain_community.embeddings import OllamaEmbeddings
-     from langchain_community.vectorstores import FAISS
-     from langchain_text_splitters import CharacterTextSplitter
+Based on the information from text documents and image analysis below, provide a comprehensive answer.
 
-     # Ensure Ollama is running (run `ollama serve` in another PowerShell if needed)
-     loader = DirectoryLoader('C:/AI_Data/')
-     documents = loader.load()
-     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-     docs = text_splitter.split_documents(documents)
+TEXT SOURCES:
+{text_context}
 
-     embeddings = OllamaEmbeddings(model="nomic-embed-text", base_url="http://localhost:11434")
-     vectorstore = FAISS.from_documents(docs, embeddings)
-     vectorstore.save_local("faiss_index")
-     ```
-   - Run: `python index.py` (~1-5 minutes, uses ~1-2GB VRAM for embeddings, ~1-5GB RAM).
+IMAGE ANALYSIS:
+{image_context}
 
-4. **Query with RAG**:
-   - Save this as `query.py`:
-     ```python
-     from langchain_ollama import OllamaLLM
-     from langchain_community.vectorstores import FAISS
-     from langchain.chains import RetrievalQA
+Instructions:
+1. Synthesize information from both text and image sources
+2. Clearly indicate when information comes from images vs text
+3. If sources conflict, mention the discrepancy
+4. If neither source type contains relevant information, state that clearly
+5. Provide a direct, helpful answer to the original question
 
-     llm = OllamaLLM(model="llama3.1:8b-q4_0", base_url="http://localhost:11434")
-     embeddings = OllamaEmbeddings(model="nomic-embed-text", base_url="http://localhost:11434")
-     vectorstore = FAISS.load_local("faiss_index", embeddings=embeddings, allow_dangerous_deserialization=True)
-     qa_chain = RetrievalQA.from_chain_type(llm, retriever=vectorstore.as_retriever())
+Answer:"""
 
-     response = qa_chain.run("Ask about your data here")
-     print(response)
-     ```
-   - Run: `python query.py` (~2-10 seconds per query).
+        try:
+            response = self.synthesis_model.generate_content(synthesis_prompt)
+            return response.text
+        except Exception as e:
+            return f"Error synthesizing answer: {e}"
 
-5. **Procedural Updates**:
-   - Add new files to `C:\AI_Data`.
-   - Update the index with this script (save as `update.py`):
-     ```python
-     from langchain_community.document_loaders import DirectoryLoader
-     from langchain_community.vectorstores import FAISS
-     from langchain_text_splitters import CharacterTextSplitter
+# CLI usage
+if __name__ == "__main__":
+    import sys
+    
+    if len(sys.argv) < 2:
+        print("Usage: python multimodal_query.py '<your_question>' [image_directory]")
+        print("Example: python multimodal_query.py 'What are the quarterly sales figures?' Images")
+        sys.exit(1)
+    
+    query = sys.argv[1]
+    image_dir = sys.argv[2] if len(sys.argv) > 2 else "Images"
+    
+    system = MultimodalQuerySystem()
+    answer = system.multimodal_query(query, image_dir)
+    
+    print("\n" + "="*50)
+    print("MULTIMODAL QUERY RESULT")
+    print("="*50)
+    print(answer)
+```
 
-     loader = DirectoryLoader('C:/AI_Data/')
-     new_docs = loader.load()
-     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-     new_split_docs = text_splitter.split_documents(new_docs)
+### 3. Update `requirements.txt`
 
-     embeddings = OllamaEmbeddings(model="nomic-embed-text", base_url="http://localhost:11434")
-     vectorstore = FAISS.load_local("faiss_index", embeddings=embeddings, allow_dangerous_deserialization=True)
-     vectorstore.add_documents(new_split_docs)
-     vectorstore.save_local("faiss_index")
-     ```
-   - Run: `python update.py` (~1-2 minutes for small updates).
+Add these dependencies to your requirements.txt:
+```
+google-generativeai
+pillow
+requests
+sentence-transformers
+faiss-cpu
+numpy
+```
 
-**Time**: ~20-30 minutes (Python: 5 min, indexing: 5-10 min, testing: 5-10 min).
-**Storage**: ~1-5GB for FAISS index.
-**Resources**: ~1-2GB VRAM (embeddings), ~1-5GB RAM, CPU for FAISS.
+### 4. Enhanced `update.py` (Optional - to include image metadata)
 
-### Troubleshooting the Original Error
-If you prefer using a script-based approach (instead of the Windows installer), you can adapt the Linux/macOS script for Windows using WSL2 or Git Bash:
-- **Option 1: Use WSL2**:
-  - Enable WSL2: Run `wsl --install` in PowerShell as admin, reboot, and install Ubuntu (takes ~10 minutes).
-  - In WSL2 (Ubuntu terminal): `curl -fsSL https://ollama.com/install.sh | bash`.
-  - Note: WSL2 may not fully leverage your RTX 3050’s GPU without additional setup (NVIDIA CUDA on WSL2), so the Windows installer is simpler.
-- **Option 2: Use Git Bash**:
-  - Install Git for Windows (git-scm.com, includes Git Bash).
-  - In Git Bash: `curl -fsSL https://ollama.com/install.sh | bash`.
-  - This is less reliable on Windows, so stick with the installer.
+You can modify your existing `update.py` to also index image metadata:
 
-### Tips
-- **Verify GPU**: After running `ollama run llama3.1:8b-q4_0`, use `nvidia-smi` to confirm ~4-6GB VRAM usage. If GPU isn’t used, ensure CUDA drivers are active (your driver 32.0.15.6650 is fine).
-- **Storage**: Reserve ~50GB on your 512GB SSD for models, indexes, and Docker.
-- **RAG Testing**: Start with a small dataset (~1-10MB) to ensure RAG works before scaling.
-- **Help**: Check r/LocalLLaMA or Ollama’s GitHub for support.
+```python
+# Add this to your existing update.py after your current implementation
 
-### Next Steps
-- **By 10:30 PM PST**: Install Ollama via the Windows installer and test Llama 3.1. You’ll have a local AI running.
-- **Tomorrow**: Set up RAG with the Python scripts above, starting with a small test dataset.
-- **Optional**: Add Open WebUI for a better interface.
+def update_with_images():
+    """Enhanced update function that includes image analysis in the index."""
+    from image_analyzer import GeminiImageAnalyzer
+    
+    # Your existing update logic here...
+    
+    # Add image analysis
+    if os.path.exists("Images"):
+        print("Analyzing images for indexing...")
+        analyzer = GeminiImageAnalyzer()
+        
+        image_results = analyzer.batch_analyze_images("Images")
+        
+        # Add image analyses to your chunks for indexing
+        for result in image_results:
+            if result['status'] == 'success':
+                image_chunk = f"IMAGE ANALYSIS ({os.path.basename(result['image_path'])}): {result['analysis']}"
+                chunks.append(image_chunk)
+                metadata.append({
+                    'source': result['image_path'],
+                    'type': 'image_analysis',
+                    'filename': os.path.basename(result['image_path'])
+                })
+    
+    # Continue with your existing FAISS index creation...
+```
 
-This gets you a working AI with Llama 3.1 tonight, then adds RAG for unlimited context and updates, all tailored to your hardware. Let me know if you hit issues!
+## Usage Instructions
+
+### 1. Setup Your Environment
+
+```bash
+# Create Images directory
+mkdir Images
+
+# Copy your images to analyze into the Images directory
+cp /path/to/your/images/* Images/
+
+# Set your Gemini API key
+export GEMINI_API_KEY="your-gemini-api-key"
+```
+
+### 2. Analyze Individual Images
+
+```bash
+# Analyze a single image
+python image_analyzer.py Images/chart.png
+
+# Analyze with custom prompt
+python image_analyzer.py Images/financial_report.png "Extract all numerical data and financial metrics from this image"
+
+# Analyze all images in directory
+python image_analyzer.py Images/
+```
+
+### 3. Perform Multimodal Queries
+
+```bash
+# Query combining text documents and images
+python multimodal_query.py "What were the Q3 sales figures?"
+
+# Specify custom image directory
+python multimodal_query.py "Analyze the budget allocation" Images/budget_charts/
+
+# Complex query example
+python multimodal_query.py "How do the visual charts compare to the written financial reports?"
+```
+
+### 4. Integration with Existing System
+
+You can also integrate this into your existing query.py:
+
+```python
+# Add to your existing query.py
+from multimodal_query import MultimodalQuerySystem
+
+def enhanced_query(question, use_images=True):
+    if use_images and os.path.exists("Images"):
+        # Use multimodal system
+        system = MultimodalQuerySystem()
+        return system.multimodal_query(question)
+    else:
+        # Use your existing text-only system
+        # ... your existing query logic
+        pass
+```
+
+## Command Examples
+
+### Basic Image Analysis
+```bash
+python image_analyzer.py Images/quarterly_report.png "Extract financial data from this chart"
+```
+
+### Multimodal Financial Query
+```bash
+python multimodal_query.py "What is the trend in revenue growth based on both documents and charts?"
+```
+
+### Batch Processing
+```bash
+python image_analyzer.py Images/ "Identify any charts, graphs, or financial data in this image"
+```
+
+## Tips for Best Results
+
+1. **Image Quality**: Ensure images are clear and readable (300+ DPI for text)
+2. **Specific Prompts**: Use targeted prompts for better analysis
+3. **Organize Images**: Keep related images in subdirectories
+4. **File Naming**: Use descriptive filenames for better organization
+5. **API Limits**: Be mindful of Gemini API rate limits for batch processing
+
+## Troubleshooting
+
+### Common Issues:
+- **API Key Error**: Ensure GEMINI_API_KEY is set correctly
+- **Image Format**: Supported formats: JPG, PNG, GIF, BMP, WebP
+- **File Size**: Keep images under 20MB for best performance
+- **Rate Limits**: Add delays between requests if hitting rate limits
+
+### Performance Optimization:
+- Resize large images before analysis
+- Use specific prompts to reduce processing time
+- Cache results to avoid re-analyzing the same images
+
+## Security Notes
+
+- Keep your API key secure and never commit it to version control
+- Consider using environment files (.env) for local development
+- Monitor your API usage to avoid unexpected charges
