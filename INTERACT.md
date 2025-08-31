@@ -1,481 +1,640 @@
-# Adding Gemini CLI Image Analysis to Your Local AI Project
+# GEMINI.md - Complete Local Implementation Guide
 
-## Prerequisites
+## Hardware Assessment
 
-1. **Install Gemini CLI**:
-   ```bash
-   npm install -g @google/generative-ai-cli
-   ```
+**Your System Specifications:**
+- **CPU**: 10-core Intel i5-13450HX ✅ Excellent
+- **GPU**: NVIDIA RTX 3050 (6GB VRAM) ✅ Good for medium models
+- **RAM**: 25GB ✅ Sufficient for large models
+- **Storage**: 512GB SSD ✅ Fast I/O
 
-2. **Set up API Key**:
-   ```bash
-   export GEMINI_API_KEY="your-api-key-here"
-   # Or add to your .bashrc/.zshrc for persistence
-   echo 'export GEMINI_API_KEY="your-api-key-here"' >> ~/.bashrc
-   ```
+**Verdict**: Your hardware is well-suited for running local vision-language models with good performance.
 
-3. **Install Required Python Packages**:
-   ```bash
-   pip install google-generativeai pillow requests
-   ```
+## Recommended Implementation Strategy
 
-## Project Structure Updates
+### Phase 1: LLaVA Integration (Week 1)
+**Target**: Get basic image analysis working locally
 
-Your updated project structure should look like:
+**Model Recommendation for Your Hardware:**
+- **Primary**: `llava:13b` (uses ~8GB RAM + 4GB VRAM) - Best balance
+- **Fallback**: `llava:7b` (uses ~5GB RAM + 3GB VRAM) - If 13b is too heavy
+- **Future**: `llava:34b` (quantized) - When you want maximum quality
+
+### Phase 2: Performance Optimization (Week 2)
+**Target**: Optimize for speed and efficiency
+
+### Phase 3: Advanced Features (Week 3+)
+**Target**: Multi-image analysis, batch processing, advanced queries
+
+---
+
+## Implementation Roadmap
+
+### Step 1: Environment Setup
+
+```bash
+# 1. Ensure Ollama is installed and running
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# 2. Pull recommended models
+ollama pull llava:13b                    # Primary vision model
+ollama pull llama3.1:8b-instruct-q4_0   # Your existing text model (keep)
+
+# 3. Install additional Python dependencies
+pip install requests pillow opencv-python pytesseract numpy faiss-cpu sentence-transformers
+
+# 4. Optional: Install Tesseract as backup OCR
+sudo apt-get install tesseract-ocr  # Linux
+# brew install tesseract            # macOS
 ```
-your-project/
-├── AI_Data/
-├── Images/                 # New: Store images for analysis
-├── faiss_index/
-├── update.py
-├── query.py
-├── image_analyzer.py       # New: Image analysis module
-├── multimodal_query.py     # New: Combined text + image queries
-└── requirements.txt        # Updated with new dependencies
-```
 
-## Implementation Files
+### Step 2: Core Implementation Files
 
-### 1. Create `image_analyzer.py`
+#### A. Enhanced Local Image Analyzer
 
 ```python
-import google.generativeai as genai
-import os
-from PIL import Image
+# enhanced_local_image_analyzer.py
+import requests
 import json
+import base64
+import os
+import time
+from PIL import Image
 from typing import Dict, List, Optional
+import concurrent.futures
+import threading
 
-class GeminiImageAnalyzer:
-    def __init__(self, api_key: str = None):
-        """Initialize Gemini image analyzer."""
-        self.api_key = api_key or os.getenv('GEMINI_API_KEY')
-        if not self.api_key:
-            raise ValueError("GEMINI_API_KEY not found in environment variables")
+class EnhancedLocalImageAnalyzer:
+    def __init__(self, vision_model="llava:13b", ollama_url="http://localhost:11434"):
+        """Optimized for your hardware specs."""
+        self.vision_model = vision_model
+        self.ollama_url = ollama_url
+        self.request_lock = threading.Lock()  # Prevent VRAM conflicts
         
-        genai.configure(api_key=self.api_key)
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        # Verify model availability
+        self.verify_model_availability()
     
-    def analyze_image(self, image_path: str, prompt: str = None) -> Dict:
-        """
-        Analyze an image with optional custom prompt.
-        
-        Args:
-            image_path: Path to the image file
-            prompt: Custom prompt for analysis (optional)
-        
-        Returns:
-            Dictionary with analysis results
-        """
+    def verify_model_availability(self):
+        """Check if required models are available."""
         try:
-            # Load and validate image
-            image = Image.open(image_path)
+            response = requests.get(f"{self.ollama_url}/api/tags", timeout=10)
+            available_models = [m['name'] for m in response.json().get('models', [])]
             
-            # Default prompt if none provided
-            if not prompt:
-                prompt = """Analyze this image in detail. Describe:
-                1. What you see in the image
-                2. Key objects, people, or elements
-                3. Context or setting
-                4. Any text visible in the image
-                5. Relevant details for document/data analysis
+            if self.vision_model not in available_models:
+                print(f"Warning: {self.vision_model} not found. Available models: {available_models}")
+                print(f"Run: ollama pull {self.vision_model}")
+            else:
+                print(f"✅ {self.vision_model} is ready")
                 
-                Provide a structured analysis that could be useful for search and retrieval."""
-            
-            # Generate content
-            response = self.model.generate_content([prompt, image])
-            
-            return {
-                'image_path': image_path,
-                'analysis': response.text,
-                'status': 'success'
-            }
-            
         except Exception as e:
+            print(f"Could not verify models: {e}")
+    
+    def optimize_image(self, image_path: str, max_size=(1024, 1024)) -> str:
+        """Optimize image size for faster processing while maintaining quality."""
+        try:
+            with Image.open(image_path) as img:
+                # Convert to RGB if necessary
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+                
+                # Resize if too large
+                if img.size[0] > max_size[0] or img.size[1] > max_size[1]:
+                    img.thumbnail(max_size, Image.Resampling.LANCZOS)
+                
+                # Save optimized version temporarily
+                optimized_path = f"/tmp/optimized_{os.path.basename(image_path)}"
+                img.save(optimized_path, "JPEG", quality=85)
+                return optimized_path
+                
+        except Exception as e:
+            print(f"Image optimization failed: {e}")
+            return image_path
+    
+    def analyze_image_advanced(self, image_path: str, query_context: str = "") -> Dict:
+        """Advanced image analysis optimized for your system."""
+        
+        # Optimize image first
+        optimized_path = self.optimize_image(image_path)
+        
+        try:
+            # Prepare focused prompt
+            focused_prompt = f"""Analyze this image comprehensively for a document analysis system.
+
+Query Context: {query_context}
+
+Provide detailed analysis covering:
+1. **Text Content**: Extract and transcribe ALL visible text, numbers, labels
+2. **Visual Data**: Describe charts, graphs, tables, diagrams in detail
+3. **Document Type**: Identify if this is a report, chart, invoice, etc.
+4. **Key Information**: Highlight important data points, trends, or insights
+5. **Searchable Keywords**: List key terms that would help find this image later
+
+Be thorough and precise - this analysis will be used for document search and retrieval."""
+
+            with open(optimized_path, "rb") as image_file:
+                image_base64 = base64.b64encode(image_file.read()).decode('utf-8')
+            
+            # Use thread lock to prevent VRAM conflicts
+            with self.request_lock:
+                response = requests.post(
+                    f"{self.ollama_url}/api/generate",
+                    json={
+                        "model": self.vision_model,
+                        "prompt": focused_prompt,
+                        "images": [image_base64],
+                        "stream": False,
+                        "options": {
+                            "temperature": 0.1,  # More focused responses
+                            "top_p": 0.9
+                        }
+                    },
+                    timeout=180  # Longer timeout for complex images
+                )
+            
+            # Cleanup optimized image if it was created
+            if optimized_path != image_path and os.path.exists(optimized_path):
+                os.remove(optimized_path)
+            
+            if response.status_code == 200:
+                analysis_text = response.json().get('response', '')
+                
+                return {
+                    'image_path': image_path,
+                    'filename': os.path.basename(image_path),
+                    'analysis': analysis_text,
+                    'model_used': self.vision_model,
+                    'status': 'success',
+                    'processing_time': time.time()
+                }
+            else:
+                return {
+                    'image_path': image_path,
+                    'status': 'error',
+                    'error': f"HTTP {response.status_code}: {response.text}"
+                }
+                
+        except Exception as e:
+            # Cleanup on error
+            if optimized_path != image_path and os.path.exists(optimized_path):
+                os.remove(optimized_path)
+            
             return {
                 'image_path': image_path,
-                'analysis': None,
                 'status': 'error',
                 'error': str(e)
             }
     
-    def batch_analyze_images(self, image_directory: str, custom_prompt: str = None) -> List[Dict]:
+    def batch_process_optimized(self, image_directory: str, query_context: str = "", max_workers: int = 2) -> List[Dict]:
         """
-        Analyze all images in a directory.
-        
-        Args:
-            image_directory: Path to directory containing images
-            custom_prompt: Optional custom prompt for all images
-        
-        Returns:
-            List of analysis results
+        Optimized batch processing for your hardware.
+        Uses threading but limits concurrent requests to prevent VRAM issues.
         """
         results = []
-        supported_formats = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
+        supported_formats = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff'}
         
-        if not os.path.exists(image_directory):
-            print(f"Directory {image_directory} does not exist")
-            return results
+        image_files = [
+            f for f in os.listdir(image_directory) 
+            if os.path.splitext(f)[1].lower() in supported_formats
+        ]
         
-        for filename in os.listdir(image_directory):
-            file_ext = os.path.splitext(filename)[1].lower()
-            if file_ext in supported_formats:
-                image_path = os.path.join(image_directory, filename)
-                print(f"Analyzing: {filename}")
-                
-                result = self.analyze_image(image_path, custom_prompt)
-                results.append(result)
+        print(f"Found {len(image_files)} images to process")
+        
+        # Process with limited concurrency to manage VRAM
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_file = {
+                executor.submit(
+                    self.analyze_image_advanced, 
+                    os.path.join(image_directory, filename), 
+                    query_context
+                ): filename for filename in image_files
+            }
+            
+            for future in concurrent.futures.as_completed(future_to_file):
+                filename = future_to_file[future]
+                try:
+                    result = future.result()
+                    results.append(result)
+                    print(f"✅ Completed: {filename}")
+                except Exception as e:
+                    print(f"❌ Failed: {filename} - {e}")
+                    results.append({
+                        'image_path': os.path.join(image_directory, filename),
+                        'status': 'error',
+                        'error': str(e)
+                    })
         
         return results
-    
-    def save_analysis_results(self, results: List[Dict], output_file: str):
-        """Save analysis results to JSON file."""
-        with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump(results, f, indent=2, ensure_ascii=False)
-        print(f"Results saved to {output_file}")
-
-# CLI usage example
-if __name__ == "__main__":
-    import sys
-    
-    analyzer = GeminiImageAnalyzer()
-    
-    if len(sys.argv) < 2:
-        print("Usage: python image_analyzer.py <image_path_or_directory> [custom_prompt]")
-        sys.exit(1)
-    
-    path = sys.argv[1]
-    custom_prompt = sys.argv[2] if len(sys.argv) > 2 else None
-    
-    if os.path.isfile(path):
-        # Single image analysis
-        result = analyzer.analyze_image(path, custom_prompt)
-        print(json.dumps(result, indent=2))
-    elif os.path.isdir(path):
-        # Batch analysis
-        results = analyzer.batch_analyze_images(path, custom_prompt)
-        output_file = "image_analysis_results.json"
-        analyzer.save_analysis_results(results, output_file)
-    else:
-        print(f"Path {path} is neither a file nor directory")
 ```
 
-### 2. Create `multimodal_query.py`
+#### B. Integrated Multimodal System
 
 ```python
+# integrated_multimodal_system.py
 import faiss
-import numpy as np
 import pickle
+import numpy as np
 from sentence_transformers import SentenceTransformer
-import json
 import os
-from image_analyzer import GeminiImageAnalyzer
-import google.generativeai as genai
+import json
+from enhanced_local_image_analyzer import EnhancedLocalImageAnalyzer
+import requests
 
-class MultimodalQuerySystem:
-    def __init__(self, faiss_index_path="faiss_index", gemini_api_key=None):
-        """Initialize multimodal query system."""
-        # Load existing text-based system
-        self.load_faiss_index(faiss_index_path)
+class IntegratedMultimodalSystem:
+    def __init__(self, 
+                 faiss_index_path="faiss_index",
+                 text_model="llama3.1:8b-instruct-q4_0",
+                 vision_model="llava:13b"):
+        """Complete local multimodal system optimized for your hardware."""
+        
+        self.text_model = text_model
+        self.vision_model = vision_model
+        
+        # Load existing text index
+        self.load_text_index(faiss_index_path)
         
         # Initialize image analyzer
-        self.image_analyzer = GeminiImageAnalyzer(gemini_api_key)
+        self.image_analyzer = EnhancedLocalImageAnalyzer(vision_model)
         
-        # Initialize Gemini for final answer synthesis
-        genai.configure(api_key=gemini_api_key or os.getenv('GEMINI_API_KEY'))
-        self.synthesis_model = genai.GenerativeModel('gemini-1.5-flash')
+        # Image analysis cache to avoid re-processing
+        self.image_cache_file = "image_analysis_cache.json"
+        self.load_image_cache()
     
-    def load_faiss_index(self, index_path):
-        """Load the existing FAISS index and related data."""
+    def load_text_index(self, index_path):
+        """Load your existing FAISS text index."""
         try:
-            self.index = faiss.read_index(os.path.join(index_path, "index.faiss"))
+            self.text_index = faiss.read_index(os.path.join(index_path, "index.faiss"))
             
             with open(os.path.join(index_path, "chunks.pkl"), "rb") as f:
-                self.chunks = pickle.load(f)
+                self.text_chunks = pickle.load(f)
             
             with open(os.path.join(index_path, "metadata.pkl"), "rb") as f:
-                self.metadata = pickle.load(f)
+                self.text_metadata = pickle.load(f)
             
             self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-            print("FAISS index loaded successfully")
+            print("✅ Text index loaded successfully")
             
         except Exception as e:
-            print(f"Error loading FAISS index: {e}")
-            self.index = None
+            print(f"❌ Error loading text index: {e}")
+            self.text_index = None
     
-    def search_text_documents(self, query: str, k: int = 5) -> List[str]:
-        """Search text documents using existing FAISS index."""
-        if not self.index:
+    def load_image_cache(self):
+        """Load cached image analyses to avoid reprocessing."""
+        try:
+            if os.path.exists(self.image_cache_file):
+                with open(self.image_cache_file, 'r') as f:
+                    self.image_cache = json.load(f)
+                print(f"✅ Loaded {len(self.image_cache)} cached image analyses")
+            else:
+                self.image_cache = {}
+        except Exception as e:
+            print(f"Warning: Could not load image cache: {e}")
+            self.image_cache = {}
+    
+    def save_image_cache(self):
+        """Save image analysis cache."""
+        try:
+            with open(self.image_cache_file, 'w') as f:
+                json.dump(self.image_cache, f, indent=2)
+        except Exception as e:
+            print(f"Warning: Could not save image cache: {e}")
+    
+    def search_text_content(self, query: str, k: int = 5) -> List[str]:
+        """Search existing text documents."""
+        if not self.text_index:
             return []
         
         query_embedding = self.embedding_model.encode([query])
-        distances, indices = self.index.search(query_embedding.astype('float32'), k)
+        distances, indices = self.text_index.search(query_embedding.astype('float32'), k)
         
         relevant_chunks = []
-        for idx in indices[0]:
-            if idx < len(self.chunks):
-                relevant_chunks.append(self.chunks[idx])
+        for i, idx in enumerate(indices[0]):
+            if idx < len(self.text_chunks):
+                # Include relevance score
+                chunk_with_score = f"[Relevance: {1/(1+distances[0][i]):.3f}] {self.text_chunks[idx]}"
+                relevant_chunks.append(chunk_with_score)
         
         return relevant_chunks
     
-    def analyze_relevant_images(self, query: str, image_directory: str = "Images") -> List[Dict]:
-        """Analyze images that might be relevant to the query."""
+    def process_images_for_query(self, query: str, image_directory: str = "Images") -> List[Dict]:
+        """Process images relevant to the query with caching."""
         if not os.path.exists(image_directory):
             return []
         
-        # Create a focused prompt based on the user's query
-        focused_prompt = f"""Analyze this image in the context of this question: "{query}"
+        results = []
         
-        Focus on:
-        1. Any information relevant to the query
-        2. Text, charts, graphs, or data visible in the image
-        3. Visual elements that might help answer the question
-        4. How this image relates to the query topic
-        
-        If the image is not relevant to the query, briefly state that."""
-        
-        results = self.image_analyzer.batch_analyze_images(image_directory, focused_prompt)
-        
-        # Filter for relevant results
-        relevant_results = []
-        for result in results:
-            if result['status'] == 'success' and result['analysis']:
-                # Simple relevance check - you could make this more sophisticated
-                analysis_lower = result['analysis'].lower()
-                query_words = query.lower().split()
+        for filename in os.listdir(image_directory):
+            if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')):
+                image_path = os.path.join(image_directory, filename)
                 
-                relevance_score = sum(1 for word in query_words if word in analysis_lower)
-                if relevance_score > 0 or len(query_words) <= 2:  # Include if any relevance or short query
-                    relevant_results.append(result)
+                # Check cache first
+                cache_key = f"{image_path}_{hash(query)}"
+                if cache_key in self.image_cache:
+                    print(f"📋 Using cached analysis for {filename}")
+                    results.append(self.image_cache[cache_key])
+                    continue
+                
+                # Analyze image
+                print(f"🔍 Analyzing {filename}...")
+                result = self.image_analyzer.analyze_image_advanced(image_path, query)
+                
+                if result['status'] == 'success':
+                    # Cache successful analysis
+                    self.image_cache[cache_key] = result
+                    results.append(result)
         
-        return relevant_results
+        # Save cache after processing
+        self.save_image_cache()
+        return results
     
-    def multimodal_query(self, query: str, image_directory: str = "Images") -> str:
+    def comprehensive_query(self, query: str, image_directory: str = "Images") -> str:
         """
-        Perform a multimodal query combining text and image analysis.
-        
-        Args:
-            query: The question to answer
-            image_directory: Directory containing images to analyze
-        
-        Returns:
-            Comprehensive answer combining text and image sources
+        Perform comprehensive query using both text and image sources.
+        Optimized for your hardware specifications.
         """
-        print(f"Processing multimodal query: {query}")
         
-        # 1. Search text documents
-        print("Searching text documents...")
-        text_results = self.search_text_documents(query, k=5)
+        print(f"\n🚀 Processing comprehensive query: '{query}'")
+        print("="*60)
         
-        # 2. Analyze relevant images
-        print("Analyzing images...")
-        image_results = self.analyze_relevant_images(query, image_directory)
+        # Step 1: Search text documents
+        print("📚 Searching text documents...")
+        text_results = self.search_text_content(query, k=5)
+        print(f"Found {len(text_results)} relevant text chunks")
         
-        # 3. Synthesize final answer
-        return self.synthesize_answer(query, text_results, image_results)
+        # Step 2: Process images
+        print("🖼️  Processing images...")
+        image_results = self.process_images_for_query(query, image_directory)
+        successful_images = [r for r in image_results if r['status'] == 'success']
+        print(f"Successfully analyzed {len(successful_images)} images")
+        
+        # Step 3: Synthesize comprehensive answer
+        print("🧠 Synthesizing comprehensive answer...")
+        return self.synthesize_comprehensive_answer(query, text_results, successful_images)
     
-    def synthesize_answer(self, query: str, text_results: List[str], image_results: List[Dict]) -> str:
-        """Synthesize final answer from text and image sources."""
+    def synthesize_comprehensive_answer(self, query: str, text_results: List[str], image_results: List[Dict]) -> str:
+        """Create final answer using local text model."""
         
-        # Prepare context for synthesis
-        text_context = "\n\n".join([f"Text Source {i+1}:\n{text}" for i, text in enumerate(text_results)])
+        # Prepare comprehensive context
+        text_context = ""
+        if text_results:
+            text_context = "\n\n".join([f"TEXT SOURCE {i+1}:\n{text}" for i, text in enumerate(text_results)])
         
         image_context = ""
-        for i, img_result in enumerate(image_results):
-            if img_result['status'] == 'success':
-                image_context += f"\nImage Analysis {i+1} ({os.path.basename(img_result['image_path'])}):\n{img_result['analysis']}\n"
+        if image_results:
+            for i, img_result in enumerate(image_results):
+                filename = img_result.get('filename', 'unknown')
+                analysis = img_result.get('analysis', 'No analysis available')
+                image_context += f"\nIMAGE SOURCE {i+1} ({filename}):\n{analysis}\n"
         
-        synthesis_prompt = f"""You are answering the following question: "{query}"
+        # Create synthesis prompt optimized for your local LLM
+        synthesis_prompt = f"""You are a comprehensive document analysis assistant. Answer this question using ALL available sources:
 
-Based on the information from text documents and image analysis below, provide a comprehensive answer.
+QUESTION: {query}
 
-TEXT SOURCES:
+AVAILABLE INFORMATION:
+
 {text_context}
 
-IMAGE ANALYSIS:
 {image_context}
 
-Instructions:
-1. Synthesize information from both text and image sources
-2. Clearly indicate when information comes from images vs text
-3. If sources conflict, mention the discrepancy
-4. If neither source type contains relevant information, state that clearly
-5. Provide a direct, helpful answer to the original question
+INSTRUCTIONS:
+1. Provide a direct, comprehensive answer to the question
+2. Synthesize information from both text documents and image analysis
+3. When citing information, specify if it comes from "text documents" or "image analysis"
+4. If sources provide conflicting information, mention both perspectives
+5. If information is incomplete, clearly state what's missing
+6. Focus on being helpful and actionable
 
-Answer:"""
+COMPREHENSIVE ANSWER:"""
 
         try:
-            response = self.synthesis_model.generate_content(synthesis_prompt)
-            return response.text
+            response = requests.post(
+                f"http://localhost:11434/api/generate",
+                json={
+                    "model": self.text_model,
+                    "prompt": synthesis_prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.3,
+                        "top_p": 0.9,
+                        "num_ctx": 4096  # Larger context for comprehensive analysis
+                    }
+                },
+                timeout=180
+            )
+            
+            if response.status_code == 200:
+                return response.json().get('response', 'No response generated')
+            else:
+                return f"❌ Error generating response: HTTP {response.status_code}"
+                
         except Exception as e:
-            return f"Error synthesizing answer: {e}"
+            return f"❌ Synthesis failed: {e}"
 
-# CLI usage
+# Performance monitoring
+def monitor_system_resources():
+    """Optional: Monitor system resource usage during processing."""
+    try:
+        import psutil
+        import GPUtil
+        
+        print(f"\n📊 SYSTEM STATUS:")
+        print(f"CPU Usage: {psutil.cpu_percent()}%")
+        print(f"RAM Usage: {psutil.virtual_memory().percent}%")
+        
+        gpus = GPUtil.getGPUs()
+        if gpus:
+            gpu = gpus[0]
+            print(f"GPU Usage: {gpu.load*100:.1f}%")
+            print(f"VRAM Usage: {gpu.memoryUtil*100:.1f}%")
+            
+    except ImportError:
+        print("Install psutil and gputil for resource monitoring: pip install psutil gputil")
+    except Exception as e:
+        print(f"Resource monitoring error: {e}")
+
 if __name__ == "__main__":
     import sys
     
     if len(sys.argv) < 2:
-        print("Usage: python multimodal_query.py '<your_question>' [image_directory]")
-        print("Example: python multimodal_query.py 'What are the quarterly sales figures?' Images")
+        print("Usage: python enhanced_local_image_analyzer.py '<question>' [image_directory]")
+        print("Example: python enhanced_local_image_analyzer.py 'What are the quarterly sales figures?' Images")
         sys.exit(1)
     
     query = sys.argv[1]
     image_dir = sys.argv[2] if len(sys.argv) > 2 else "Images"
     
-    system = MultimodalQuerySystem()
-    answer = system.multimodal_query(query, image_dir)
+    # Monitor resources
+    monitor_system_resources()
     
-    print("\n" + "="*50)
-    print("MULTIMODAL QUERY RESULT")
-    print("="*50)
+    # Run comprehensive analysis
+    system = IntegratedMultimodalSystem()
+    answer = system.comprehensive_query(query, image_dir)
+    
+    print("\n" + "="*60)
+    print("🎯 COMPREHENSIVE ANALYSIS RESULT")
+    print("="*60)
+    print(answer)
+    print("\n" + "="*60)
+    
+    # Final resource check
+    monitor_system_resources()
+```
+
+### Step 3: Integration with Existing System
+
+#### Update your existing `query.py`:
+
+```python
+# Add to the top of your existing query.py
+from integrated_multimodal_system import IntegratedMultimodalSystem
+import os
+
+# Modify your existing query function:
+def enhanced_query(question, use_multimodal=True):
+    """Enhanced version of your existing query function."""
+    
+    if use_multimodal and os.path.exists("Images"):
+        print("🔄 Using multimodal analysis...")
+        system = IntegratedMultimodalSystem()
+        return system.comprehensive_query(question)
+    else:
+        print("📝 Using text-only analysis...")
+        # Your existing query logic here
+        return your_existing_query_function(question)
+
+# Example usage at the bottom:
+if __name__ == "__main__":
+    question = "What is a reasonable weekly allowance based on economic factors?"
+    
+    # Try multimodal first, fallback to text-only
+    try:
+        answer = enhanced_query(question, use_multimodal=True)
+    except Exception as e:
+        print(f"Multimodal failed, using text-only: {e}")
+        answer = enhanced_query(question, use_multimodal=False)
+    
     print(answer)
 ```
 
-### 3. Update `requirements.txt`
-
-Add these dependencies to your requirements.txt:
-```
-google-generativeai
-pillow
-requests
-sentence-transformers
-faiss-cpu
-numpy
-```
-
-### 4. Enhanced `update.py` (Optional - to include image metadata)
-
-You can modify your existing `update.py` to also index image metadata:
+### Step 4: Performance Testing Script
 
 ```python
-# Add this to your existing update.py after your current implementation
+# performance_test.py
+import time
+import os
+from integrated_multimodal_system import IntegratedMultimodalSystem
 
-def update_with_images():
-    """Enhanced update function that includes image analysis in the index."""
-    from image_analyzer import GeminiImageAnalyzer
+def test_system_performance():
+    """Test and benchmark your local multimodal system."""
     
-    # Your existing update logic here...
+    system = IntegratedMultimodalSystem()
     
-    # Add image analysis
-    if os.path.exists("Images"):
-        print("Analyzing images for indexing...")
-        analyzer = GeminiImageAnalyzer()
+    test_queries = [
+        "What are the main financial trends?",
+        "Summarize the key data points",
+        "What charts or graphs are available?",
+        "Extract all numerical data",
+        "What is the quarterly performance?"
+    ]
+    
+    print("🧪 PERFORMANCE TESTING")
+    print("="*50)
+    
+    for i, query in enumerate(test_queries, 1):
+        print(f"\nTest {i}/5: {query}")
+        start_time = time.time()
         
-        image_results = analyzer.batch_analyze_images("Images")
-        
-        # Add image analyses to your chunks for indexing
-        for result in image_results:
-            if result['status'] == 'success':
-                image_chunk = f"IMAGE ANALYSIS ({os.path.basename(result['image_path'])}): {result['analysis']}"
-                chunks.append(image_chunk)
-                metadata.append({
-                    'source': result['image_path'],
-                    'type': 'image_analysis',
-                    'filename': os.path.basename(result['image_path'])
-                })
+        try:
+            result = system.comprehensive_query(query)
+            duration = time.time() - start_time
+            
+            print(f"✅ Completed in {duration:.2f} seconds")
+            print(f"Response length: {len(result)} characters")
+            
+        except Exception as e:
+            print(f"❌ Failed: {e}")
     
-    # Continue with your existing FAISS index creation...
+    print(f"\n📊 Cache status: {len(system.image_analyzer.image_cache)} cached analyses")
+
+if __name__ == "__main__":
+    test_system_performance()
 ```
 
-## Usage Instructions
+---
 
-### 1. Setup Your Environment
+## Hardware-Specific Optimizations
 
+### For Your RTX 3050 (6GB VRAM):
+- **Model Choice**: `llava:13b` is optimal (uses ~4GB VRAM)
+- **Concurrent Processing**: Max 2 simultaneous image analyses
+- **Image Optimization**: Resize to 1024x1024 to reduce VRAM usage
+- **Memory Management**: Use threading locks to prevent conflicts
+
+### For Your 25GB RAM:
+- **Large Context**: Use 4096+ token context for comprehensive analysis
+- **Caching**: Aggressive image analysis caching
+- **Batch Processing**: Process multiple images efficiently
+
+### For Your 10-core CPU:
+- **Parallel Processing**: Use 2-4 worker threads for batch operations
+- **Background Tasks**: OCR and preprocessing in parallel
+
+---
+
+## Usage Examples
+
+### Basic Setup:
 ```bash
-# Create Images directory
+# Create project structure
 mkdir Images
+cp your_charts_and_documents/* Images/
 
-# Copy your images to analyze into the Images directory
-cp /path/to/your/images/* Images/
+# Test single image
+python enhanced_local_image_analyzer.py "Analyze this financial chart" Images/quarterly_report.png
 
-# Set your Gemini API key
-export GEMINI_API_KEY="your-gemini-api-key"
+# Test full system
+python enhanced_local_image_analyzer.py "What are the revenue trends?" Images/
 ```
 
-### 2. Analyze Individual Images
-
+### Advanced Queries:
 ```bash
-# Analyze a single image
-python image_analyzer.py Images/chart.png
+# Complex financial analysis
+python enhanced_local_image_analyzer.py "Compare the budget allocation shown in charts with the written financial reports"
 
-# Analyze with custom prompt
-python image_analyzer.py Images/financial_report.png "Extract all numerical data and financial metrics from this image"
+# Data extraction
+python enhanced_local_image_analyzer.py "Extract all numerical data and create a summary of key metrics"
 
-# Analyze all images in directory
-python image_analyzer.py Images/
+# Trend analysis
+python enhanced_local_image_analyzer.py "What trends can you identify across all documents and images?"
 ```
 
-### 3. Perform Multimodal Queries
+---
 
-```bash
-# Query combining text documents and images
-python multimodal_query.py "What were the Q3 sales figures?"
-
-# Specify custom image directory
-python multimodal_query.py "Analyze the budget allocation" Images/budget_charts/
-
-# Complex query example
-python multimodal_query.py "How do the visual charts compare to the written financial reports?"
-```
-
-### 4. Integration with Existing System
-
-You can also integrate this into your existing query.py:
-
-```python
-# Add to your existing query.py
-from multimodal_query import MultimodalQuerySystem
-
-def enhanced_query(question, use_images=True):
-    if use_images and os.path.exists("Images"):
-        # Use multimodal system
-        system = MultimodalQuerySystem()
-        return system.multimodal_query(question)
-    else:
-        # Use your existing text-only system
-        # ... your existing query logic
-        pass
-```
-
-## Command Examples
-
-### Basic Image Analysis
-```bash
-python image_analyzer.py Images/quarterly_report.png "Extract financial data from this chart"
-```
-
-### Multimodal Financial Query
-```bash
-python multimodal_query.py "What is the trend in revenue growth based on both documents and charts?"
-```
-
-### Batch Processing
-```bash
-python image_analyzer.py Images/ "Identify any charts, graphs, or financial data in this image"
-```
-
-## Tips for Best Results
-
-1. **Image Quality**: Ensure images are clear and readable (300+ DPI for text)
-2. **Specific Prompts**: Use targeted prompts for better analysis
-3. **Organize Images**: Keep related images in subdirectories
-4. **File Naming**: Use descriptive filenames for better organization
-5. **API Limits**: Be mindful of Gemini API rate limits for batch processing
-
-## Troubleshooting
+## Troubleshooting & Optimization
 
 ### Common Issues:
-- **API Key Error**: Ensure GEMINI_API_KEY is set correctly
-- **Image Format**: Supported formats: JPG, PNG, GIF, BMP, WebP
-- **File Size**: Keep images under 20MB for best performance
-- **Rate Limits**: Add delays between requests if hitting rate limits
+1. **VRAM Errors**: Reduce concurrent workers or use `llava:7b`
+2. **Slow Processing**: Enable image optimization and caching
+3. **Model Not Found**: Run `ollama pull llava:13b`
 
-### Performance Optimization:
-- Resize large images before analysis
-- Use specific prompts to reduce processing time
-- Cache results to avoid re-analyzing the same images
+### Performance Tips:
+1. **Pre-process Images**: Resize large images beforehand
+2. **Use Caching**: Let the system cache analyses for repeated queries
+3. **Monitor Resources**: Use the performance monitoring script
+4. **Batch Processing**: Process multiple images at once for efficiency
 
-## Security Notes
+### Expected Performance on Your Hardware:
+- **Single Image Analysis**: 10-30 seconds
+- **Batch Processing (10 images)**: 2-5 minutes
+- **Full Query with Text + Images**: 30-90 seconds
 
-- Keep your API key secure and never commit it to version control
-- Consider using environment files (.env) for local development
-- Monitor your API usage to avoid unexpected charges
+---
+
+## Next Steps
+
+1. **Week 1**: Implement basic LLaVA integration
+2. **Week 2**: Add performance optimizations and caching
+3. **Week 3**: Create specialized prompts for your specific document types
+4. **Week 4**: Build advanced query interfaces and batch processing tools
+
+Your hardware setup is excellent for this implementation - you should get great performance with the 13b model while keeping everything completely local and private!
