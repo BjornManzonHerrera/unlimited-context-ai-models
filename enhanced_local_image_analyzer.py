@@ -8,7 +8,6 @@ from PIL import Image
 from typing import Dict, List, Optional
 import concurrent.futures
 import threading
-from prompt_saver import save_prompt
 
 class EnhancedLocalImageAnalyzer:
     def __init__(self, vision_model="llava:13b", ollama_url="http://localhost:11434"):
@@ -30,7 +29,7 @@ class EnhancedLocalImageAnalyzer:
                 print(f"Warning: {self.vision_model} not found. Available models: {available_models}")
                 print(f"Run: ollama pull {self.vision_model}")
             else:
-                print(f"{self.vision_model} is ready")
+                print(f"✅ {self.vision_model} is ready")
                 
         except Exception as e:
             print(f"Could not verify models: {e}")
@@ -76,8 +75,6 @@ Provide detailed analysis covering:
 5. **Searchable Keywords**: List key terms that would help find this image later
 
 Be thorough and precise - this analysis will be used for document search and retrieval."""
-
-            save_prompt(focused_prompt, "enhanced_local_image_analyzer_focused_prompt")
 
             with open(optimized_path, "rb") as image_file:
                 image_base64 = base64.b64encode(image_file.read()).decode('utf-8')
@@ -162,9 +159,9 @@ Be thorough and precise - this analysis will be used for document search and ret
                 try:
                     result = future.result()
                     results.append(result)
-                    print(f"Completed: {filename}")
+                    print(f"✅ Completed: {filename}")
                 except Exception as e:
-                    print(f"Failed: {filename} - {e}")
+                    print(f"❌ Failed: {filename} - {e}")
                     results.append({
                         'image_path': os.path.join(image_directory, filename),
                         'status': 'error',
