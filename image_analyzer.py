@@ -3,6 +3,7 @@ import os
 from PIL import Image
 import json
 from typing import Dict, List, Optional
+from prompt_saver import save_prompt
 
 class GeminiImageAnalyzer:
     def __init__(self, api_key: str = None):
@@ -39,6 +40,8 @@ class GeminiImageAnalyzer:
                 5. Relevant details for document/data analysis
                 
                 Provide a structured analysis that could be useful for search and retrieval."""
+            
+            save_prompt(prompt, "image_analyzer_prompt")
             
             # Generate content
             response = self.model.generate_content([prompt, image])

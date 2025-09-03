@@ -8,6 +8,7 @@ from PIL import Image
 from typing import Dict, List, Optional
 import concurrent.futures
 import threading
+from prompt_saver import save_prompt
 
 class EnhancedLocalImageAnalyzer:
     def __init__(self, vision_model="llava:13b", ollama_url="http://localhost:11434"):
@@ -75,6 +76,8 @@ Provide detailed analysis covering:
 5. **Searchable Keywords**: List key terms that would help find this image later
 
 Be thorough and precise - this analysis will be used for document search and retrieval."""
+
+            save_prompt(focused_prompt, "enhanced_local_image_analyzer_focused_prompt")
 
             with open(optimized_path, "rb") as image_file:
                 image_base64 = base64.b64encode(image_file.read()).decode('utf-8')

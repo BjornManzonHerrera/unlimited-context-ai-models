@@ -8,6 +8,7 @@ import json
 from enhanced_local_image_analyzer import EnhancedLocalImageAnalyzer
 import requests
 from typing import List, Dict
+from prompt_saver import save_prompt
 
 class IntegratedMultimodalSystem:
     def __init__(self, 
@@ -175,6 +176,8 @@ INSTRUCTIONS:
 6. Focus on being helpful and actionable
 
 COMPREHENSIVE ANSWER:"""
+
+        save_prompt(synthesis_prompt, "integrated_multimodal_system_synthesis_prompt")
 
         try:
             response = requests.post(

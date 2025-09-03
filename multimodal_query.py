@@ -6,6 +6,7 @@ import json
 import os
 from image_analyzer import GeminiImageAnalyzer
 import google.generativeai as genai
+from prompt_saver import save_prompt
 
 class MultimodalQuerySystem:
     def __init__(self, faiss_index_path="faiss_index", gemini_api_key=None):
@@ -61,6 +62,8 @@ class MultimodalQuerySystem:
         # Create a focused prompt based on the user's query
         focused_prompt = f"""Analyze this image in the context of this question: "{query}"\n\nFocus on:\n1. Any information relevant to the query\n2. Text, charts, graphs, or data visible in the image\n3. Visual elements that might help answer the question\n4. How this image relates to the query topic\n\nIf the image is not relevant to the query, briefly state that."""
         
+        save_prompt(focused_prompt, "multimodal_query_focused_prompt")
+        
         results = self.image_analyzer.batch_analyze_images(image_directory, focused_prompt)
         
         # Filter for relevant results
@@ -112,7 +115,12 @@ class MultimodalQuerySystem:
             if img_result['status'] == 'success':
                 image_context += f"\nImage Analysis {i+1} ({os.path.basename(img_result['image_path'])}):\n{img_result['analysis']}\n"
         
-        synthesis_prompt = f"""You are answering the following question: "{query}"\n\nBased on the information from text documents and image analysis below, provide a comprehensive answer.\n\nTEXT SOURCES:\n{text_context}\n\nIMAGE ANALYSIS:\n{image_context}\n\nInstructions:\n1. Synthesize information from both text and image sources\n2. Clearly indicate when information comes from images vs text\n3. If sources conflict, mention the discrepancy\n4. If neither source type contains relevant information, state that clearly\n5. Provide a direct, helpful answer to the original question\n\nAnswer:"""
+        synthesis_prompt = f"""You are answering the following question: "{query}"\n\nBased on the information from text documents and image analysis below, provide a comprehensive answer.\n\nTEXT SOURCES:\n{text_context}\n\nIMAGE ANALYSIS:\n{image_context}\n\nInstructions:\n1. Synthesize information from both text and image sources\n2. Clearly indicate when information comes from images vs text\n3. If sources conflict, mention the discrepancy\n4. If neither source type contains relevant information, state that clearly\n5. Provide a direct, helpful answer to the original question
+
+Answer:"""
+
+        save_prompt(synthesis_prompt, "multimodal_query_synthesis_prompt")
+
 
         try:
             response = self.synthesis_model.generate_content(synthesis_prompt)
