@@ -2,6 +2,7 @@
 from integrated_multimodal_system import IntegratedMultimodalSystem
 import os
 import time
+from prompt_saver import save_output
 
 # Modify your existing query function:
 def enhanced_query(question, use_multimodal=True):
@@ -62,6 +63,8 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Multimodal failed, using text-only: {e}")
         answer = enhanced_query(question, use_multimodal=False)
+    
+    save_output(answer, question)
     
     print("\nAnswer:")
     print(answer)
