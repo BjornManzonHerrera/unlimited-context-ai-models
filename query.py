@@ -42,11 +42,11 @@ def enhanced_query(question, use_multimodal=True):
         system = IntegratedMultimodalSystem()
         return system.comprehensive_query(question)
     else:
-        print("📝 Using text-only analysis...")
+        print("Using text-only analysis...")
         return your_existing_query_function(question)
 
 if __name__ == "__main__":
-    question = "What is a reasonable weekly allowance based on economic factors?"
+    question = """Analyze the reciept in the Images Folder"""
     
     try:
         answer = enhanced_query(question, use_multimodal=True)

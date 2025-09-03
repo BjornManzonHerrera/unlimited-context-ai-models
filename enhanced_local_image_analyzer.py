@@ -9,6 +9,8 @@ from typing import Dict, List, Optional
 import concurrent.futures
 import threading
 
+import tempfile
+
 class EnhancedLocalImageAnalyzer:
     def __init__(self, vision_model="llava:13b", ollama_url="http://localhost:11434"):
         """Optimized for your hardware specs."""
@@ -29,7 +31,7 @@ class EnhancedLocalImageAnalyzer:
                 print(f"Warning: {self.vision_model} not found. Available models: {available_models}")
                 print(f"Run: ollama pull {self.vision_model}")
             else:
-                print(f"✅ {self.vision_model} is ready")
+                print(f"{self.vision_model} is ready")
                 
         except Exception as e:
             print(f"Could not verify models: {e}")
@@ -47,7 +49,7 @@ class EnhancedLocalImageAnalyzer:
                     img.thumbnail(max_size, Image.Resampling.LANCZOS)
                 
                 # Save optimized version temporarily
-                optimized_path = f"/tmp/optimized_{os.path.basename(image_path)}"
+                optimized_path = os.path.join(tempfile.gettempdir(), f"optimized_{os.path.basename(image_path)}")
                 img.save(optimized_path, "JPEG", quality=85)
                 return optimized_path
                 
@@ -159,7 +161,7 @@ Be thorough and precise - this analysis will be used for document search and ret
                 try:
                     result = future.result()
                     results.append(result)
-                    print(f"✅ Completed: {filename}")
+                    print(f"Completed: {filename}")
                 except Exception as e:
                     print(f"❌ Failed: {filename} - {e}")
                     results.append({

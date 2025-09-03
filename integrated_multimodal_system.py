@@ -206,8 +206,8 @@ def monitor_system_resources():
         import psutil
         import GPUtil
         
-        print(f"\n📊 SYSTEM STATUS:")
-        print(f"CPU Usage: {psutil.cpu_percent()}%)"
+        print("\nSYSTEM STATUS:")
+        print(f"CPU Usage: {psutil.cpu_percent()}%)")
         print(f"RAM Usage: {psutil.virtual_memory().percent}%")
         
         gpus = GPUtil.getGPUs()
