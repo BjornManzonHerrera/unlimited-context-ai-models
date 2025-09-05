@@ -1,58 +1,33 @@
 from integrated_multimodal_system import IntegratedMultimodalSystem
 import os
-import time
 from prompt_saver import save_output
-from langchain_ollama import OllamaLLM
-from langchain_community.embeddings import OllamaEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain.chains import RetrievalQA
+import sys
 
-def your_existing_query_function(question):
-    print("Loading LLM model...")
-    start_time = time.time()
-    llm = OllamaLLM(model="llama3.1:8b-instruct-q4_0", base_url="http://localhost:11434")
-    print(f"LLM model loaded in {time.time() - start_time:.2f} seconds.")
-
-    print("Loading embeddings model...")
-    start_time = time.time()
-    embeddings = OllamaEmbeddings(model="nomic-embed-text", base_url="http://localhost:11434")
-    print(f"Embeddings model loaded in {time.time() - start_time:.2f} seconds.")
-
-    print("Loading vector store...")
-    start_time = time.time()
-    vectorstore = FAISS.load_local("faiss_index", embeddings=embeddings, allow_dangerous_deserialization=True)
-    print(f"Vector store loaded in {time.time() - start_time:.2f} seconds.")
-
-    print("Creating QA chain...")
-    start_time = time.time()
-    qa_chain = RetrievalQA.from_chain_type(llm, retriever=vectorstore.as_retriever())
-    print(f"QA chain created in {time.time() - start_time:.2f} seconds.")
-
-    print(f"Asking question: {question}")
-    start_time = time.time()
-    result = qa_chain.run(question)
-    print(f"Question answered in {time.time() - start_time:.2f} seconds.")
-    return result
-
-def enhanced_query(question, use_multimodal=True):
-    """Enhanced version of your existing query function."""
+def query(question: str):
+    """
+    This function exclusively uses the offline IntegratedMultimodalSystem to answer a question.
+    """
+    print("Initializing offline multimodal system...")
+    system = IntegratedMultimodalSystem()
     
-    if use_multimodal and os.path.exists("Images"):
-        print("🔄 Using multimodal analysis...")
-        system = IntegratedMultimodalSystem()
-        return system.comprehensive_query(question)
-    else:
-        print("Using text-only analysis...")
-        return your_existing_query_function(question)
+    print(f"Processing query: \"{question}\"")
+    answer = system.comprehensive_query(question)
+    
+    return answer
 
 if __name__ == "__main__":
-    question = """What folder can you access to get data?"""
+    if len(sys.argv) < 2:
+        print("Usage: python query.py \"<your_question>\"")
+        sys.exit(1)
+        
+    question = sys.argv[1]
     
     try:
-        answer = enhanced_query(question, use_multimodal=True)
+        answer = query(question)
+        save_output(answer, question)
+        print("\n" + "="*50)
+        print("QUERY RESULT")
+        print("="*50)
+        print(answer)
     except Exception as e:
-        print(f"Multimodal failed, using text-only: {e}")
-        answer = enhanced_query(question, use_multimodal=False)
-    
-    save_output(answer, question)
-    print(answer)
+        print(f"An error occurred: {e}")

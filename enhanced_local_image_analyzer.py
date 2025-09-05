@@ -65,18 +65,33 @@ class EnhancedLocalImageAnalyzer:
         
         try:
             # Prepare focused prompt
-            focused_prompt = f"""Analyze this image comprehensively for a document analysis system.
+            focused_prompt = f"""You are an expert document and image analyst. Your task is to analyze the provided image with extreme precision and objectivity. Avoid making assumptions or providing information that is not directly supported by the visual evidence.
 
-Query Context: {query_context}
+Query Context: "{query_context}"
 
-Provide detailed analysis covering:
-1. **Text Content**: Extract and transcribe ALL visible text, numbers, labels
-2. **Visual Data**: Describe charts, graphs, tables, diagrams in detail
-3. **Document Type**: Identify if this is a report, chart, invoice, etc.
-4. **Key Information**: Highlight important data points, trends, or insights
-5. **Searchable Keywords**: List key terms that would help find this image later
+**Analysis Instructions:**
 
-Be thorough and precise - this analysis will be used for document search and retrieval."""
+1.  **Text Content**:
+    *   Extract and transcribe ALL visible text, including small print, numbers, and labels.
+    *   If text is obscured or unreadable, explicitly state "Text is present but unreadable." Do not guess.
+
+2.  **Visual Data**:
+    *   **Charts/Graphs**: Describe the type of chart (e.g., bar, line, pie), its title, axes, and any visible data points or trends.
+    *   **Tables**: Transcribe the table headers and all visible rows and columns. If the table is too large, summarize its structure and provide a few example rows.
+    *   **Diagrams**: Explain the purpose of the diagram and describe its components and their relationships.
+
+3.  **Document Type**:
+    *   Identify the type of document (e.g., invoice, report, presentation slide, photograph). Be specific.
+
+4.  **Key Information & Insights**:
+    *   Objectively highlight the most important data points, such as totals, key figures, or significant trends shown in the data.
+    *   Do not infer or predict information beyond what is explicitly presented.
+
+5.  **Searchable Keywords**:
+    *   List 5-10 relevant keywords from the image content that would be useful for search and retrieval.
+
+**Important**: Your analysis will be used for a search and retrieval system, so accuracy is critical. If you are not confident about a detail, explicitly state your uncertainty. For example, "It appears to be a [object], but the quality is too low to be certain."
+"""
 
             with open(optimized_path, "rb") as image_file:
                 image_base64 = base64.b64encode(image_file.read()).decode('utf-8')

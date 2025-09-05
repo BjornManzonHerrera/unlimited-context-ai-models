@@ -95,8 +95,10 @@ class IntegratedMultimodalSystem:
             if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')):
                 image_path = os.path.join(image_directory, filename)
                 
+                # Create a more robust cache key
+                cache_key = f"{image_path}|{query}|{self.image_analyzer.vision_model}"
+                
                 # Check cache first
-                cache_key = f"{image_path}_{hash(query)}"
                 if cache_key in self.image_cache:
                     print(f"📋 Using cached analysis for {filename}")
                     results.append(self.image_cache[cache_key])
