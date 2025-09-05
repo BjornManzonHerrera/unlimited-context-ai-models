@@ -6,5 +6,13 @@
     "model_used": "llava:13b",
     "status": "success",
     "processing_time": 1756896023.6486542
+  },
+  "Images\\b218400d-b731-4dc6-a7f8-e404908bdac3.jpg|Please analyze the image in the Images folder|llava:13b": {
+    "image_path": "Images\\b218400d-b731-4dc6-a7f8-e404908bdac3.jpg",
+    "filename": "b218400d-b731-4dc6-a7f8-e404908bdac3.jpg",
+    "analysis": " 1. Text Content:\n   - The visible text reads \"7-ELEVEN\" at the top of the document, which indicates the brand or store name associated with the receipt.\n   - Below this, there are various items listed along with their prices and quantities purchased. The text is too small to transcribe in detail, but it includes descriptions such as \"100ML,\" \"250ML,\" and \"350ML.\" These likely refer to different sizes of the same product or different products altogether.\n   - There are numerical values present, which represent the prices paid for each item. However, due to the image's resolution, these numbers are not clearly legible.\n\n2. Visual Data:\n   - The document is a receipt with a structured layout typical of such documents. It includes sections for items purchased, their quantities, and their respective prices.\n   - There are no charts or graphs visible on the receipt; it appears to be a simple list-based format.\n\n3. Document Type:\n   - The document is a receipt, which is a record of transactions made at a store or service establishment.\n\n4. Key Information & Insights:\n   - Due to the image's resolution and the text being unreadable, there is no specific information that can be confidently extracted from this image.\n\n5. Searchable Keywords:\n   - 7-ELEVEN\n   - Receipt\n   - Store purchase\n   - Product quantities\n   - Prices",
+    "model_used": "llava:13b",
+    "status": "success",
+    "processing_time": 1757058816.1877599
   }
 }

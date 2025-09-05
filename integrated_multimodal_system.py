@@ -2,7 +2,8 @@
 import faiss
 import pickle
 import numpy as np
-from sentence_transformers import SentenceTransformer
+from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import OllamaEmbeddings
 import os
 import json
 from enhanced_local_image_analyzer import EnhancedLocalImageAnalyzer
@@ -19,7 +20,13 @@ class IntegratedMultimodalSystem:
         self.vision_model = vision_model
         
         # Load existing text index
-        self.load_text_index(faiss_index_path)
+        try:
+            self.embedding_model = OllamaEmbeddings(model="nomic-embed-text", base_url="http://localhost:11434")
+            self.text_index = FAISS.load_local(faiss_index_path, self.embedding_model, allow_dangerous_deserialization=True)
+            print("✅ Text index loaded successfully")
+        except Exception as e:
+            print(f"❌ Error loading text index: {e}")
+            self.text_index = None
         
         # Initialize image analyzer
         self.image_analyzer = EnhancedLocalImageAnalyzer(vision_model)
@@ -27,25 +34,7 @@ class IntegratedMultimodalSystem:
         # Image analysis cache to avoid re-processing
         self.image_cache_file = "image_analysis_cache.json"
         self.load_image_cache()
-    
-    def load_text_index(self, index_path):
-        """Load your existing FAISS text index."""
-        try:
-            self.text_index = faiss.read_index(os.path.join(index_path, "index.faiss"))
-            
-            with open(os.path.join(index_path, "chunks.pkl"), "rb") as f:
-                self.text_chunks = pickle.load(f)
-            
-            with open(os.path.join(index_path, "metadata.pkl"), "rb") as f:
-                self.text_metadata = pickle.load(f)
-            
-            self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-            print("✅ Text index loaded successfully")
-            
-        except Exception as e:
-            print(f"❌ Error loading text index: {e}")
-            self.text_index = None
-    
+
     def load_image_cache(self):
         """Load cached image analyses to avoid reprocessing."""
         try:
@@ -58,7 +47,7 @@ class IntegratedMultimodalSystem:
         except Exception as e:
             print(f"Warning: Could not load image cache: {e}")
             self.image_cache = {}
-    
+
     def save_image_cache(self):
         """Save image analysis cache."""
         try:
@@ -66,21 +55,18 @@ class IntegratedMultimodalSystem:
                 json.dump(self.image_cache, f, indent=2)
         except Exception as e:
             print(f"Warning: Could not save image cache: {e}")
-    
+
     def search_text_content(self, query: str, k: int = 5) -> list[str]:
         """Search existing text documents."""
         if not self.text_index:
             return []
         
-        query_embedding = self.embedding_model.encode([query])
-        distances, indices = self.text_index.search(query_embedding.astype('float32'), k)
+        results = self.text_index.similarity_search_with_score(query, k=k)
         
         relevant_chunks = []
-        for i, idx in enumerate(indices[0]):
-            if idx < len(self.text_chunks):
-                # Include relevance score
-                chunk_with_score = f"[Relevance: {1/(1+distances[0][i]):.3f}] {self.text_chunks[idx]}"
-                relevant_chunks.append(chunk_with_score)
+        for doc, score in results:
+            chunk_with_score = f"[Relevance: {1-score:.3f}] {doc.page_content}"
+            relevant_chunks.append(chunk_with_score)
         
         return relevant_chunks
     
