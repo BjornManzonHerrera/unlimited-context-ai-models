@@ -1,5 +1,1 @@
-__pycache__/
-llm_outputs/
-prompts/
-*.pdf
 image_analysis_cache.json

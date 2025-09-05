@@ -4,7 +4,7 @@ import json
 import base64
 import os
 import time
-from PIL import Image
+from PIL import Image, ImageFilter, ImageOps
 from typing import Dict, List, Optional
 import concurrent.futures
 import threading
@@ -48,6 +48,12 @@ class EnhancedLocalImageAnalyzer:
                 if img.size[0] > max_size[0] or img.size[1] > max_size[1]:
                     img.thumbnail(max_size, Image.Resampling.LANCZOS)
                 
+                # Convert to grayscale
+                img = ImageOps.grayscale(img)
+
+                # Increase contrast
+                img = ImageOps.autocontrast(img)
+
                 # Sharpen the image to improve text clarity
                 img = img.filter(ImageFilter.SHARPEN)
 
@@ -181,7 +187,7 @@ Query Context: "{query_context}"
                     results.append(result)
                     print(f"Completed: {filename}")
                 except Exception as e:
-                    print(f"❌ Failed: {filename} - {e}")
+                    print(f"Failed: {filename} - {e}")
                     results.append({
                         'image_path': os.path.join(image_directory, filename),
                         'status': 'error',
