@@ -1,11 +1,11 @@
 from langchain_community.document_loaders import DirectoryLoader
 from langchain_community.vectorstores import FAISS
-from langchain_text_splitters import CharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import OllamaEmbeddings
 
 loader = DirectoryLoader('C:/Users/LENOVO/Desktop/unlimited-context-ai-models/AI_Data/', glob="**/*.*", exclude=["**/faiss_index/**"])
 new_docs = loader.load()
-text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
 new_split_docs = text_splitter.split_documents(new_docs)
 
 embeddings = OllamaEmbeddings(model="nomic-embed-text", base_url="http://localhost:11434")

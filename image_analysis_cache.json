@@ -1,1 +1,10 @@
-{}
+{
+  "Images\\34f9b08c-1909-4c6c-b6dc-0ea95e9ce955.jpg_100716188954089494": {
+    "image_path": "Images\\34f9b08c-1909-4c6c-b6dc-0ea95e9ce955.jpg",
+    "filename": "34f9b08c-1909-4c6c-b6dc-0ea95e9ce955.jpg",
+    "analysis": " 1. Text Content:\n   - The visible text includes the brand name \"7-Eleven\" at the top of the receipt, followed by a series of items listed with their respective prices. There are also barcodes and possibly other identifiers or codes that are not fully legible due to the resolution of the image.\n   - Numbers: The visible numbers include transaction amounts such as \"20.00\" for one item, \"35.00\" for another, and a total amount at the bottom which is partially obscured.\n   - Labels: There are labels like \"ITEM,\" \"PRICE,\" and \"TOTAL.\"\n\n2. Visual Data:\n   - The receipt contains a table with columns that likely represent different items purchased, their prices, and possibly other details such as quantity or description. However, the resolution of the image does not allow for a detailed description of any charts, graphs, or diagrams that might be present on the receipt.\n\n3. Document Type:\n   - This is an invoice or receipt from a retail store, specifically 7-Eleven, as indicated by the brand name at the top.\n\n4. Key Information:\n   - The key information includes the date and time of the transaction, which is not fully visible due to the resolution of the image.\n   - The items purchased are listed with their respective prices, indicating what was bought and how much it cost.\n   - The total amount for the transaction is also provided at the bottom of the receipt.\n\n5. Searchable Keywords:\n   - 7-Eleven\n   - Receipt\n   - Invoice\n   - Retail\n   - Transaction\n   - Date and time\n   - Items purchased\n   - Prices",
+    "model_used": "llava:13b",
+    "status": "success",
+    "processing_time": 1756896023.6486542
+  }
+}

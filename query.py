@@ -46,7 +46,7 @@ def enhanced_query(question, use_multimodal=True):
         return your_existing_query_function(question)
 
 if __name__ == "__main__":
-    question = """Analyze the reciept in the Images Folder"""
+    question = """What folder can you access to get data?"""
     
     try:
         answer = enhanced_query(question, use_multimodal=True)
