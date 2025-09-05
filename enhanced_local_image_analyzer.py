@@ -36,7 +36,7 @@ class EnhancedLocalImageAnalyzer:
         except Exception as e:
             print(f"Could not verify models: {e}")
     
-    def optimize_image(self, image_path: str, max_size=(1024, 1024)) -> str:
+    def optimize_image(self, image_path: str, max_size=(2048, 2048)) -> str:
         """Optimize image size for faster processing while maintaining quality."""
         try:
             with Image.open(image_path) as img:
@@ -48,9 +48,12 @@ class EnhancedLocalImageAnalyzer:
                 if img.size[0] > max_size[0] or img.size[1] > max_size[1]:
                     img.thumbnail(max_size, Image.Resampling.LANCZOS)
                 
+                # Sharpen the image to improve text clarity
+                img = img.filter(ImageFilter.SHARPEN)
+
                 # Save optimized version temporarily
                 optimized_path = os.path.join(tempfile.gettempdir(), f"optimized_{os.path.basename(image_path)}")
-                img.save(optimized_path, "JPEG", quality=85)
+                img.save(optimized_path, "JPEG", quality=95) # Increased quality
                 return optimized_path
                 
         except Exception as e:
