@@ -18,3 +18,8 @@ The project is a multimodal AI system that can answer questions using both text 
     -   Update the `optimize_image` function in `enhanced_local_image_analyzer.py`.
     -   Increase the maximum image resolution to 2048x2048.
     -   Apply a sharpening filter to the image to improve text clarity.
+
+-   **Implement Incremental Updates for Vector Store:**
+    -   Modified `update.py` to only process new or modified files in the `AI_Data` directory.
+    -   Introduced `update_metadata.json` to store file modification timestamps for efficient tracking.
+    -   This change significantly reduces the time taken for subsequent runs of `update.py` by avoiding reprocessing of unchanged files.
