@@ -1,4 +1,3 @@
-google-generativeai
 pillow
 requests
 sentence-transformers

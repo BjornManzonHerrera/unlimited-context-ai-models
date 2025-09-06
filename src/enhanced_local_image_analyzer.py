@@ -57,6 +57,9 @@ class EnhancedLocalImageAnalyzer:
                 # Sharpen the image to improve text clarity
                 img = img.filter(ImageFilter.SHARPEN)
 
+                # Binarize the image for better text extraction
+                img = img.convert('1') # Convert to 1-bit pixels, black and white
+
                 # Save optimized version temporarily
                 optimized_path = os.path.join(tempfile.gettempdir(), f"optimized_{os.path.basename(image_path)}")
                 img.save(optimized_path, "JPEG", quality=95) # Increased quality
@@ -91,6 +94,15 @@ Query Context: "{query_context}"
 
 3.  **Document Type**:
     *   Identify the type of document (e.g., invoice, report, presentation slide, photograph). Be specific.
+
+**If the image is a receipt:**
+*   Identify and extract the following fields with precision:
+    *   **Total Amount:** The final amount due. Be careful to distinguish this from "Cash Paid" or "Change".
+    *   **Subtotal:** The total before taxes.
+    *   **Tax Amount:** The amount of tax paid.
+    *   **Line Items:** For each item, extract the name, quantity, and price.
+*   If any of these fields are not present, state "Field not found".
+*   Do not guess or infer values.
 
 4.  **Key Information & Insights**:
     *   Objectively highlight the most important data points, such as totals, key figures, or significant trends shown in the data.
